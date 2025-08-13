@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Systems Engineering AI Assistant</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        MathJax = {
+          tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']]
+          }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #0052cc;
+            --secondary-color: #f4f5f7;
+            --border-color: #dfe1e6;
+            --text-color: #172b4d;
+            --text-light: #5e6c84;
+            --background-color: #ffffff;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+        body {
+            font-family: var(--font-family);
+            background-color: var(--secondary-color);
+            margin: 0;
+            color: var(--text-color);
+        }
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .app-header {
+            background-color: var(--background-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+            flex-shrink: 0;
+        }
+        .app-header h1 {
+            font-size: 20px;
+            margin: 0;
+            font-weight: 600;
+        }
+        .main-layout {
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        .chat-panel {
+            width: 65%;
+            min-width: 600px;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--background-color);
+            border-right: 1px solid var(--border-color);
+        }
+        .chat-history {
+            flex-grow: 1;
+            padding: 24px;
+            overflow-y: auto;
+        }
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .user-message .message-bubble {
+            background-color: var(--primary-color);
+            color: white;
+            align-self: flex-end;
+            border-radius: 18px 18px 4px 18px;
+        }
+        .assistant-message .message-bubble {
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            align-self: flex-start;
+            border-radius: 18px 18px 18px 4px;
+        }
+        .message-bubble {
+            padding: 12px 16px;
+            max-width: 85%;
+            word-wrap: break-word;
+        }
+        .message-bubble h1, .message-bubble h2, .message-bubble h3 { margin-top: 0; }
+        .message-bubble table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+        .message-bubble th, .message-bubble td { border: 1px solid #ccc; padding: 8px; }
+        .message-bubble th { background-color: #e9ecef; }
+        .message-bubble pre {
+            background-color: #f4f5f7;
+            padding: 16px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            line-height: 1.4;
+        }
+        .chat-input-area {
+            padding: 24px;
+            border-top: 1px solid var(--border-color);
+            background-color: var(--background-color);
+        }
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            position: relative;
+        }
+        #promptInput {
+            flex-grow: 1;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px 16px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        #promptInput:focus {
+            border-color: var(--primary-color);
+        }
+        #sendButton {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 20px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        #sendButton:disabled {
+            background-color: #a5adba;
+            cursor: not-allowed;
+        }
+        .controls { margin-bottom: 16px; }
+        .control-button {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-light);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .visualization-panel {
+            flex-grow: 1;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+        .visualization-header {
+            margin-bottom: 16px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        #visualizationContainer {
+            width: 100%;
+            height: 100%;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: var(--background-color);
+        }
+        .loading-indicator {
+            display: none;
+            margin-top: 10px;
+            text-align: center;
+            color: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <h1>Systems Engineering AI Assistant</h1>
+            <div id="system-topic-display" class="system-topic">
+                <strong>Current System:</strong> <span id="system-topic-text">{{ system_topic if system_topic else "Not specified" }}</span>
+            </div>
+        </header>
+        <main class="main-layout">
+            <div class="chat-panel">
+                <div class="chat-history" id="chatHistory">
+                    <div class="message assistant-message">
+                        <div class="message-bubble" id="welcomeMessage"></div>
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <div class="controls">
+                        <button class="control-button" onclick="clearContext()">Clear Conversation</button>
+                        <button class="control-button" onclick="showHelp()">Help</button>
+                    </div>
+                    <div class="input-wrapper">
+                        <input type="text" id="promptInput" placeholder="e.g., Create SRs for a drone delivery system" onkeypress="handleKeyPress(event)">
+                        <button id="sendButton" onclick="sendMessage()">Send</button>
+                    </div>
+                    <div class="loading-indicator" id="loading">Processing...</div>
+                </div>
+            </div>
+            <div class="visualization-panel">
+                <div class="visualization-header">System Visualization</div>
+                <div id="visualizationContainer"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const welcomeText = `I am an interactive systems engineering assistant. You can build a set of engineering documents step-by-step.
+
+Start by asking for one artifact, for example:
+- "Create System Requirements for a drone delivery system."
+
+Then, build upon the conversation by requesting other artifacts like System Designs, Verification Requirements, and Verification Methods.
+
+Once you have generated the artifacts you need, you can ask for a visualization:
+- "Create a graph of the system."
+- "Visualize the system architecture."`;
+
+        function showHelp() {
+            addMessage('Assistant', welcomeText);
+        }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('welcomeMessage').innerHTML = marked.parse(welcomeText);
+            document.getElementById('promptInput').focus();
+        });
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function addMessage(sender, text) {
+            const history = document.getElementById('chatHistory');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender.toLowerCase()}-message`;
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+
+            if (sender === 'User') {
+                bubble.innerText = text;
+            } else {
+                bubble.innerHTML = marked.parse(text);
+                // After setting the HTML, find and render the math in the new content
+                setTimeout(() => MathJax.typesetPromise([bubble]), 0);
+            }
+            
+            messageDiv.appendChild(bubble);
+            history.appendChild(messageDiv);
+            history.scrollTop = history.scrollHeight;
+        }
+
+        function showVisualization(graphData) {
+            const container = document.getElementById('visualizationContainer');
+            container.innerHTML = ''; // Clear previous content
+
+            if (!graphData) {
+                return;
+            }
+
+            const nodes = new vis.DataSet(graphData.nodes);
+            const edges = new vis.DataSet(graphData.edges);
+
+            const data = {
+                nodes: nodes,
+                edges: edges
+            };
+
+            const options = {
+                nodes: {
+                    shape: 'box',
+                    margin: 10,
+                    font: { size: 14, color: '#000000' },
+                    borderWidth: 1.5
+                },
+                edges: {
+                    arrows: 'to',
+                    color: '#6e6e6e',
+                    font: { align: 'middle' },
+                    smooth: { type: 'cubicBezier', forceDirection: 'vertical', roundness: 0.4 }
+                },
+                groups: {
+                    'System': { color: { background: '#F0F0F0', border: '#6e6e6e' }, shape: 'ellipse' },
+                    'System Requirement': { color: { background: '#DFE8FF', border: '#0052cc' } },
+                    'System Design': { color: { background: '#DFF9F0', border: '#00875A' } },
+                    'Verification Requirement': { color: { background: '#FFF4DF', border: '#FFAB00' } },
+                    'Verification Method': { color: { background: '#FFDFDF', border: '#DE350B' } },
+                },
+                layout: {
+                    hierarchical: {
+                        enabled: true,
+                        direction: 'UD',
+                        sortMethod: 'directed',
+                        levelSeparation: 200,
+                        nodeSpacing: 250,
+                        treeSpacing: 300,
+                        blockShifting: true,
+                        edgeMinimization: true,
+                        parentCentralization: true,
+                    }
+                },
+                physics: {
+                    enabled: false
+                },
+                interaction: {
+                    hover: true,
+                    dragNodes: true,
+                    zoomView: true,
+                    dragView: true
+                }
+            };
+
+            const network = new vis.Network(container, data, options);
+
+            network.on("stabilizationIterationsDone", function () {
+                // Get the IDs of the first few SR nodes to focus on
+                const focusNodes = graphData.nodes
+                    .filter(node => node.group === 'System Requirement')
+                    .slice(0, 3)
+                    .map(node => node.id);
+
+                if (focusNodes.length > 0) {
+                    network.focus(focusNodes[0], {
+                        scale: 2.5, // 250% zoom
+                        animation: {
+                            duration: 1000,
+                            easingFunction: 'easeInOutQuad'
+                        }
+                    });
+                } else {
+                    // Fallback to fitting the whole graph if no SRs exist
+                    network.fit({
+                        animation: {
+                            duration: 1000,
+                            easingFunction: 'easeInOutQuad'
+                        }
+                    });
+                }
+            });
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('promptInput');
+            const button = document.getElementById('sendButton');
+            const loading = document.getElementById('loading');
+            const prompt = input.value.trim();
+
+            if (!prompt) return;
+
+            input.disabled = true;
+            button.disabled = true;
+            loading.style.display = 'block';
+            addMessage('User', prompt);
+            input.value = '';
+
+            try {
+                const formData = new FormData();
+                formData.append('prompt', prompt);
+
+                let url = '/chat';
+                if (prompt.toLowerCase().includes('morphism proof') || prompt.toLowerCase().includes('homomorphism')) {
+                    url = '/morphism_proof';
+                }
+
+                const response = await fetch(url, { method: 'POST', body: formData });
+                const data = await response.json();
+
+                if (data.error) {
+                    addMessage('Assistant', `**Error:** ${data.error}`);
+                } else {
+                    addMessage('Assistant', data.response_text);
+                    if (data.system_topic) {
+                        document.getElementById('system-topic-text').textContent = data.system_topic;
+                    }
+                    if (data.graph_data) {
+                        showVisualization(data.graph_data);
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('Assistant', '**Error:** Could not connect to the server. Please try again.');
+            } finally {
+                input.disabled = false;
+                button.disabled = false;
+                loading.style.display = 'none';
+                input.focus();
+            }
+        }
+
+        async function clearContext() {
+            const response = await fetch('/clear_context', { method: 'POST' });
+            const data = await response.json();
+            document.getElementById('chatHistory').innerHTML = `<div class="message assistant-message"><div class="message-bubble">${marked.parse(welcomeText)}</div></div>`;
+            document.getElementById('visualizationContainer').innerHTML = '';
+            document.getElementById('system-topic-text').textContent = "Not specified";
+            addMessage('Assistant', 'Conversation context has been cleared.');
+        }
+    </script>
+</body>
+</html>

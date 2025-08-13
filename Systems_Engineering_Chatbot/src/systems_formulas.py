@@ -1,0 +1,4 @@
+SYSTEM_REQUIREMENT_FORMULA = "r(M) -> {True, False}"
+SYSTEM_DESIGN_FORMULA = "∀r ∈ R_S, r(D) = True"
+VERIFICATION_REQUIREMENT_FORMULA = "v(D) -> {True, False}"
+VERIFICATION_METHOD_FORMULA = "m(D, v) -> {Pass, Fail}"
