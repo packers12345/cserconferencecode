@@ -1,53 +1,76 @@
-# Systems_Engineering_Chatbot
+# Systems Engineering Chatbot
 
-## Overview
-The Systems Engineering Chatbot is a Flask-based web application designed to assist users in generating system designs, verification requirements, and visualizations based on user inputs. It integrates with external APIs to provide intelligent responses and utilizes user authentication for secure access.
+This is a Flask-based chatbot for systems engineering tasks. It uses a combination of a local knowledge base (from a PDF document) and generative AI to solve systems engineering queries, generate systemartifacts, and create visualizations.
 
-## Project Structure
+## Prerequisites
+
+*   Python 3.x
+*   pip (Python package installer)
+
+## Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/packers12345/cserconferencecode.git
+    cd cserconferencecode/Systems_Engineering_Chatbot
+    ```
+
+2.  **Create a virtual environment (recommended):**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows, use `venv\Scripts\activate`
+    ```
+
+3.  **Install the required packages:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+## Environment Variables
+
+Create a `.env` file in the `src` directory (`Systems_Engineering_Chatbot/src/.env`) and add the following environment variables.
+
 ```
-Systems_Engineering_Chatbot
-├── src
-│   ├── app.py                # Main application file
-│   ├── api_integration.py     # API integration functions
-│   └── templates
-│       ├── index.html        # Main index page template
-│       └── login.html        # Login page template
-├── requirements.txt          # Python dependencies
-├── .env                      # Environment variables
-└── README.md                 # Project documentation
+NEO4J_URI=your_neo4j_uri
+NEO4J_USERNAME=your_neo4j_username
+NEO4J_PASSWORD=your_neo4j_password
+NEO4J_DATABASE=your_neo4j_database
+GEMINI_API_KEY=your_gemini_api_key
+FLASK_SECRET_KEY=a_strong_secret_key
 ```
 
-## Setup Instructions
+*   **`NEO4J_*`**: Credentials for your Neo4j AuraDB instance. These will be provided upon request.
+*   **`GEMINI_API_KEY`**: Your API key for the Google Gemini model. You can obtain one from the [Google AI Studio](https://aistudio.google.com/app/apikey).
+*   **`FLASK_SECRET_KEY`**: A secret key for Flask sessions. You can generate one yourself.
 
-1. **Clone the Repository**
-   ```
-   git clone <repository-url>
-   cd Systems_Engineering_Chatbot
-   ```
+## Running the Application
 
-2. **Create a Virtual Environment**
-   ```
-   python -m venv venv
-   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-   ```
+1.  **Ensure the PDF knowledge base is present:**
+    The application expects a file named `Wach_PF_D_2023 (1).pdf` to be in the `Systems_Engineering_Chatbot` directory.
 
-3. **Install Dependencies**
-   ```
-   pip install -r requirements.txt
-   ```
+2.  **Run the Flask application:**
+    From the `Systems_Engineering_Chatbot` directory, run:
+    ```bash
+    python src/app.py
+    ```
 
-4. **Configure Environment Variables**
-   Create a `.env` file in the root directory 
+3.  **Access the application:**
+    Open your web browser and go to `http://127.0.0.1:5001`.
 
+## File Structure
 
-5. **Run the Application**
-   ```
-   python src/app.py
-   ```
-   Access the application at `http://localhost:5000`.
-
-## Usage
-- Navigate to the login page to authenticate.
-- After logging in, you can access the main index page where you can input prompts for system design and verification requirements.
-- The application will generate responses based on the provided inputs and display visualizations.
-
+```
+Systems_Engineering_Chatbot/
+├── src/
+│   ├── app.py                  # Main Flask application
+│   ├── context_manager.py      # Manages conversation context
+│   ├── synthesis_engine.py     # Handles response generation
+│   ├── api_integration.py      # Integrates with external APIs (Gemini)
+│   ├── neo4j_integration.py    # Integrates with Neo4j
+│   ├── systems_engineering_graph.py # Generates system graphs
+│   ├── templates/
+│   │   └── index.html          # Main HTML template
+│   └── .env                    # Environment variables (create this file)
+├── requirements.txt            # Python dependencies
+├── Wach_PF_D_2023 (1).pdf      # Knowledge base document
+└── README.md                   # This file
