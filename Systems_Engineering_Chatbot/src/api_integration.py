@@ -249,10 +249,11 @@ def generate_homomorphic_proof_and_quantification(conversation: Conversation, sy
         *   **Transition Preservation:** `h_S(N_X(s_X, x_X)) = N_Y(h_S(s_X), h_X(x_X))`
         *   **Output Preservation:** `h_Y(R_X(s_X, x_X)) = R_Y(h_S(s_X), h_X(x_X))`
     5.  **Quantify Degree of Homomorphism:**
-        *   Based on Wymorian Systems Theory, explain what the "degree of homomorphism" means in this context.
-        *   Discuss how well the defined mappings preserve the structure and behavior.
-        *   Provide a qualitative assessment (e.g., "high degree," "partial," "strong isomorphism") and justify it based on the verification.
-        *   If it's an isomorphism, explicitly state it and explain why (bijective mappings, perfect preservation).
+        *   Based on Wymorian Systems Theory, explain what the "degree of homomorphism" means in this context, including its mathematical interpretation (e.g., ratio of preserved properties, cardinality of mapped elements, error metrics).
+        *   Discuss how well the defined mappings preserve the structure and behavior, providing specific examples from the verification steps.
+        *   Provide a qualitative assessment (e.g., "high degree," "partial," "strong isomorphism") and justify it based on the rigor of the mathematical mappings and the extent of property preservation.
+        *   Offer a system theory-based justification for the chosen quantification, referencing concepts like behavioral equivalence, structural similarity, and the implications for system replacement or modeling.
+        *   If it's an isomorphism, explicitly state it and explain why (bijective mappings, perfect preservation of all relevant system properties and dynamics).
     6.  **Provide a Conclusion:** State whether the homomorphism is valid based on your verification, and clearly state any assumptions made during the proof and the final quantified degree of homomorphism.
 
     ---
