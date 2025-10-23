@@ -251,9 +251,9 @@ def generate_homomorphic_proof_and_quantification(conversation: Conversation, sy
     5.  **Quantify Degree of Homomorphism:**
         *   Based on Wymorian Systems Theory, explain what the "degree of homomorphism" means in this context, including its mathematical interpretation (e.g., ratio of preserved properties, cardinality of mapped elements, error metrics).
         *   Discuss how well the defined mappings preserve the structure and behavior, providing specific examples from the verification steps.
-        *   Provide a qualitative assessment (e.g., "high degree," "partial," "strong isomorphism") and justify it based on the rigor of the mathematical mappings and the extent of property preservation.
-        *   Offer a system theory-based justification for the chosen quantification, referencing concepts like behavioral equivalence, structural similarity, and the implications for system replacement or modeling.
-        *   If it's an isomorphism, explicitly state it and explain why (bijective mappings, perfect preservation of all relevant system properties and dynamics).
+        *   Provide a qualitative assessment (e.g., "high degree," "partial," "strong isomorphism") and justify it based on the rigor of the mathematical mappings and the extent of property preservation. This justification *must* be explicitly driven by the mathematical and system theory principles of Wymorian proof, detailing how the mappings and verified conditions directly support the quantified degree.
+        *   Offer a system theory-based justification for the chosen quantification, referencing concepts like behavioral equivalence, structural similarity, and the implications for system replacement or modeling within the Wymorian framework.
+        *   If it's an isomorphism, explicitly state it and explain why (bijective mappings, perfect preservation of all relevant system properties and dynamics), grounding this explanation in Wymorian System Theory.
     6.  **Provide a Conclusion:** State whether the homomorphism is valid based on your verification, and clearly state any assumptions made during the proof and the final quantified degree of homomorphism.
 
     ---
