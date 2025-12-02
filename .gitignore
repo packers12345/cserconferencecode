@@ -1,0 +1,25 @@
+# Environment and secrets
+.env
+src/.env
+Systems_Engineering_Chatbot/.env
+Systems_Engineering_Chatbot/src/.env
+
+# Python cache and virtualenvs
+__pycache__/
+*.pyc
+*.pyo
+.Python
+venv/
+.venv/
+
+# Local databases and cache files
+Systems_Engineering_Chatbot/src/morphism_cache.db
+
+# Large binaries / docs not meant for VCS
+Wach_PF_D_2023 (1).pdf
+Systems_Engineering_Chatbot/Wach_PF_D_2023 (1).pdf
+
+# IDE/project noise
+.vscode/
+.idea/
+*.log
