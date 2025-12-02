@@ -23,6 +23,16 @@ class Conversation:
         self.artifacts = {}
         self.traces = []  # To store relationships, e.g., [('SR-001', 'SD-001')]
         self._artifact_counter = 0
+        
+        # Track hard-rule context for follow-up queries
+        # Values: None | "rule_1" | "rule_2"
+        self.last_rule_triggered = None
+        # Store the exact hardcoded response text that was returned
+        self.last_hard_rule_response = None
+        
+        # Track hard-rule context for follow-up queries
+        self.last_rule_triggered = None  # None, "rule_1", or "rule_2"
+        self.last_hard_rule_response = None  # Store the previous hardcoded response
 
     def add_artifact(self, artifact_type: str, text: str):
         """
@@ -73,42 +83,40 @@ class Conversation:
                     target_type = self.artifacts[target_id]['type']
                     print(f"DEBUG: build_traces - Considering trace: {source_id} ({source_type}) -> {target_id} ({target_type})")
 
-                    # Determine the correct trace direction based on Wymorian definitions
+                    # Define a clear hierarchy for traceability: SR -> SD, SR -> VR, SD -> VR, VR -> VM
                     trace_tuple = None
 
-                    # Case 1: Requirement-to-Design (R -> D)
-                    # If a Design (SD) mentions a Requirement (SR), we want (SR, SD)
-                    if source_type == 'SD' and target_type == 'SR':
-                        trace_tuple = (target_id, source_id) # (SR, SD)
-                    # If a Requirement (SR) mentions a Design (SD), we want (SR, SD)
-                    elif source_type == 'SR' and target_type == 'SD':
-                        trace_tuple = (source_id, target_id) # (SR, SD)
+                    # SR -> SD (Requirement to Design)
+                    if source_type == 'SR' and target_type == 'SD':
+                        trace_tuple = (source_id, target_id)
+                    elif source_type == 'SD' and target_type == 'SR':
+                        trace_tuple = (target_id, source_id) # Reverse for consistency
 
-                    # Case 2: Requirement-to-Verification (R -> V)
-                    # If a Verification (VR/VM) mentions a Requirement (SR), we want (SR, VR/VM)
-                    elif source_type in ['VR', 'VM'] and target_type == 'SR':
-                        trace_tuple = (target_id, source_id) # (SR, VR/VM)
-                    # If a Requirement (SR) mentions a Verification (VR/VM), we want (SR, VR/VM)
-                    elif source_type == 'SR' and target_type in ['VR', 'VM']:
-                        trace_tuple = (source_id, target_id) # (SR, VR/VM)
-
-                    # Case 3: Design-to-Verification (D -> V)
-                    # If a Verification (VR/VM) mentions a Design (SD), we want (SD, VR/VM)
-                    elif source_type in ['VR', 'VM'] and target_type == 'SD':
-                        trace_tuple = (target_id, source_id) # (SD, VR/VM)
-                    # If a Design (SD) mentions a Verification (VR/VM), we want (SD, VR/VM)
-                    elif source_type == 'SD' and target_type in ['VR', 'VM']:
-                        trace_tuple = (source_id, target_id) # (SD, VR/VM)
+                    # SR -> VR (Requirement to Verification Requirement)
+                    elif source_type == 'SR' and target_type == 'VR':
+                        trace_tuple = (source_id, target_id)
+                    elif source_type == 'VR' and target_type == 'SR':
+                        trace_tuple = (target_id, source_id) # Reverse for consistency
                     
-                    if trace_tuple:
-                        print(f"DEBUG: build_traces - Proposed trace_tuple: {trace_tuple}")
-                        if trace_tuple not in self.traces:
-                            self.traces.append(trace_tuple)
-                            print(f"DEBUG: build_traces - Added trace: {trace_tuple}")
-                        else:
-                            print(f"DEBUG: build_traces - Trace {trace_tuple} already exists.")
+                    # SD -> VR (Design to Verification Requirement)
+                    elif source_type == 'SD' and target_type == 'VR':
+                        trace_tuple = (source_id, target_id)
+                    elif source_type == 'VR' and target_type == 'SD':
+                        trace_tuple = (target_id, source_id) # Reverse for consistency
+
+                    # VR -> VM (Verification Requirement to Verification Method)
+                    elif source_type == 'VR' and target_type == 'VM':
+                        trace_tuple = (source_id, target_id)
+                    elif source_type == 'VM' and target_type == 'VR':
+                        trace_tuple = (target_id, source_id) # Reverse for consistency
+                    
+                    if trace_tuple and trace_tuple not in self.traces:
+                        self.traces.append(trace_tuple)
+                        print(f"DEBUG: build_traces - Added trace: {trace_tuple}")
+                    elif trace_tuple:
+                        print(f"DEBUG: build_traces - Trace {trace_tuple} already exists.")
                     else:
-                        print(f"DEBUG: build_traces - No valid Wymorian trace direction for {source_id} -> {target_id}")
+                        print(f"DEBUG: build_traces - No valid Wymorian trace direction for {source_id} ({source_type}) -> {target_id} ({target_type})")
 
     def _extract_or_generate_id(self, artifact_type: str, text: str) -> str:
         """Helper to get an artifact's ID from its text or create a new one."""
@@ -123,54 +131,42 @@ class Conversation:
 
     def _clean_artifact_text(self, artifact_id: str, text: str) -> str:
         """
-        Removes the redundant header (e.g., 'SR-001: ### SR-001: ') from the artifact text.
+        Removes the artifact ID header (e.g., '### SR-001: ') from the artifact text.
+        Assumes the LLM output starts with '### ID: Content'.
         """
-        # Regex to match the pattern "ID: ### ID: " at the beginning of the text
-        # It handles cases where the ID might be followed by a colon and then "### ID:"
-        pattern = re.compile(rf"^{re.escape(artifact_id)}:\s*###\s*{re.escape(artifact_id)}:\s*", re.IGNORECASE)
+        # Regex to match "### ID: " at the beginning of the text
+        pattern = re.compile(rf"^\s*###\s*{re.escape(artifact_id)}:\s*", re.IGNORECASE)
         cleaned_text = pattern.sub("", text, 1) # Replace only the first occurrence
         return cleaned_text.strip()
 
     def _parse_components(self, text: str) -> list:
-        """Helper to parse components from artifact text."""
+        """
+        Helper to parse components from artifact text, assuming a markdown list format.
+        Components are identified by lines starting with '- **Component Name:**'.
+        Details are subsequent indented lines or lines starting with '-'.
+        """
         components = []
-        # This regex captures lines that start with '- **' as component names
-        # and then captures subsequent lines that are indented or start with '-' as details.
-        component_pattern = re.compile(r'^- \*\*(.*?):\*\*(.*?(?=\n^- \*\*|\Z))', re.DOTALL | re.MULTILINE)
+        current_component = None
         
-        matches = component_pattern.finditer(text)
-        for match in matches:
-            component_name = match.group(1).strip()
-            details_block = match.group(2).strip()
+        lines = text.split('\n')
+        for line in lines:
+            stripped_line = line.strip()
             
-            details = []
-            # Split the details block by lines and add non-empty, non-component lines as details
-            for line in details_block.split('\n'):
-                stripped_line = line.strip()
-                if stripped_line and not stripped_line.startswith('- **'):
-                    details.append(stripped_line)
-            
-            components.append({"name": component_name, "details": details})
+            # Check for a new component header: '- **Component Name:**'
+            component_header_match = re.match(r'^- \*\*(.*?):\*\*', stripped_line)
+            if component_header_match:
+                if current_component:
+                    components.append(current_component)
+                component_name = component_header_match.group(1).strip()
+                current_component = {"name": component_name, "details": []}
+            elif current_component and stripped_line:
+                # Add details to the current component.
+                # This handles both indented lines and lines starting with '-'
+                current_component["details"].append(stripped_line.lstrip('- ').strip())
         
-        # Fallback for simpler component parsing if the above regex is too strict or for different formats
-        if not components:
-            current_component = None
-            for line in text.split('\n'):
-                line = line.strip()
-                if line.startswith('- **'):
-                    if current_component:
-                        components.append(current_component)
-                    component_name = line.split('**')[1].strip(':') # Remove trailing colon
-                    current_component = {"name": component_name, "details": []}
-                elif line.startswith('-') and current_component:
-                    # Add any line starting with '-' as a detail if a component is active
-                    current_component["details"].append(line.lstrip('- ').strip())
-                elif current_component and line:
-                    # Add any non-empty line as a detail if a component is active (for multi-line details)
-                    current_component["details"].append(line)
-            if current_component:
-                components.append(current_component)
-
+        if current_component:
+            components.append(current_component)
+            
         return components
 
     def get_context_for_text_generation(self) -> dict:
@@ -195,12 +191,25 @@ class Conversation:
         """
         return list(self.artifacts.values())
 
+    def get_full_conversation_text(self) -> str:
+        """
+        Returns the entire conversation history as a single string,
+        including the system topic and all artifact texts.
+        """
+        full_text = f"System Topic: {self.system_topic}\n\n"
+        for artifact_id, artifact_data in self.artifacts.items():
+            full_text += f"### {artifact_id}: {artifact_data['type']}\n"
+            full_text += f"{artifact_data['text']}\n\n"
+        return full_text.strip()
+
     def to_dict(self) -> dict:
         """Serializes the conversation object to a dictionary for session storage."""
         return {
             "system_topic": self.system_topic,
             "artifacts": self.artifacts,
-            "traces": self.traces
+            "traces": self.traces,
+            "last_rule_triggered": self.last_rule_triggered,
+            "last_hard_rule_response": self.last_hard_rule_response,
         }
 
     @classmethod
@@ -212,6 +221,8 @@ class Conversation:
         conversation = cls(data['system_topic'])
         conversation.artifacts = data.get('artifacts', {})
         conversation.traces = data.get('traces', [])
+        conversation.last_rule_triggered = data.get('last_rule_triggered', None)
+        conversation.last_hard_rule_response = data.get('last_hard_rule_response', None)
         
         # Re-initialize counter to avoid ID collisions
         max_counter = 0

@@ -19,7 +19,41 @@ import networkx as nx
 
 # Load environment variables at the very beginning of the script execution
 # This ensures that os.environ is populated before any functions try to access keys.
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
+def safe_load_dotenv(dotenv_path: str):
+    """
+    Load a .env file but skip variables whose value would exceed the
+    Windows environment-variable length limit (32767 characters).
+
+    This prevents ValueError: the environment variable is longer than 32767 characters
+    when a .env accidentally contains huge blobs (e.g., embedded files or base64).
+    """
+    max_env_len = 32767
+    path = dotenv_path
+    if not os.path.exists(path):
+        return
+    try:
+        with open(path, 'r', encoding='utf-8') as fh:
+            for raw in fh:
+                line = raw.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if line.startswith('export '):
+                    line = line[len('export '):]
+                if '=' not in line:
+                    continue
+                key, val = line.split('=', 1)
+                key = key.strip()
+                val = val.strip().strip('"\'')
+                if len(val) > max_env_len:
+                    print(f"Skipping environment variable '{key}': value exceeds {max_env_len} characters (Windows limit).")
+                    continue
+                os.environ[key] = val
+    except Exception as e:
+        print(f"Error loading .env file '{path}': {e}")
+
+
+# Use the safe loader instead of unguarded load_dotenv to avoid very large env values
+safe_load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 # Load spaCy model
 try:
@@ -315,6 +349,53 @@ Focus on practical, executable verification procedures rather than theoretical p
         return response.text.strip()
     except Exception as e:
         return f"Error generating verification conditions: {e}"
+
+def create_homomorphic_proof(system_x: str, system_y: str) -> str:
+    """
+    Generates a homomorphic proof for two systems and quantifies the degree of homomorphism.
+
+    Args:
+        system_x: The first system (e.g., 'a mechanical spring').
+        system_y: The second system (e.g., 'an electric circuit model').
+
+    Returns:
+        A string containing the homomorphic proof and the degree of homomorphism.
+    """
+    try:
+        prompt = f"""
+You are a systems theorist specializing in Wymorian Systems Theory. Your task is to create a homomorphic proof for two systems and quantify the degree of homomorphism between them.
+
+System X: {system_x}
+System Y: {system_y}
+
+Leverage the principles of Wymorian systems theory and isomorphic mapping properties to construct the proof.
+
+The response must include:
+
+1.  **System Definitions**:
+    *   Define System X and System Y in terms of their components, states, inputs, and state transition functions.
+    *   Provide the mathematical representations for both systems. For example, for a mechanical spring, this would be F = -kx, and for an RLC circuit, it would be a second-order differential equation.
+
+2.  **Homomorphic Mapping**:
+    *   Define a mapping function (h) that maps the states, inputs, and outputs of System X to System Y.
+    *   Show that this mapping preserves the structure and behavior of the systems, satisfying the conditions for homomorphism.
+    *   Explicitly demonstrate that the state transitions are preserved under the mapping.
+
+3.  **Homomorphic Proof**:
+    *   Provide a step-by-step proof demonstrating that the mapping is a valid homomorphism.
+    *   Reference the specific properties of Wymorian systems theory that are being applied.
+
+4.  **Quantification of Homomorphism**:
+    *   Quantify the degree of homomorphism between the two systems. This should be a numerical value or a qualitative assessment (e.g., "strong homomorphism," "weak homomorphism").
+    *   Justify the quantification based on the properties of the mapping and any discrepancies or simplifications made.
+
+Example prompt for you to follow: 'create a homomorphic proof for a mechanical spring and an electric circuit model and quantify the degree of homomorphism across the two systems.'
+"""
+        model = get_gemini_client()
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        return f"Error generating homomorphic proof: {e}"
 
 def generate_system_requirements(prompt: str, pdf_data: Optional[BytesIO] = None) -> str:
     """

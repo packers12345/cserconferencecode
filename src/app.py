@@ -173,6 +173,42 @@ def combined():
         "system_visual": morphism_image # This will be HTML content for the visualization
     })
 
+@app.route("/homomorphic_proof", methods=["POST"])
+def homomorphic_proof():
+    """
+    Processes a user prompt to generate a homomorphic proof.
+    Expects a prompt in the format: "create a homomorphic proof for [System X] and [System Y]".
+    """
+    prompt = request.form.get("prompt", "").strip()
+    if not prompt:
+        return jsonify({"response": "Please enter a prompt."}), 400
+
+    # Regex to extract System X and System Y
+    match = re.search(r"create a homomorphic proof for (.+) and (.+)", prompt, re.IGNORECASE)
+    if not match:
+        return jsonify({"response": "Please provide the prompt in the format: 'create a homomorphic proof for [System X] and [System Y]'."}), 400
+
+    system_x = match.group(1).strip()
+    system_y = match.group(2).strip()
+
+    homomorphic_proof_output = "Error: Homomorphic proof generation failed."
+    try:
+        homomorphic_proof_output = api_integration.create_homomorphic_proof(system_x, system_y)
+    except Exception as e:
+        print(f"Error calling create_homomorphic_proof: {e}")
+        homomorphic_proof_output = f"Error generating homomorphic proof: {str(e)}"
+
+    # Update conversation history in session
+    conversation = session.get("conversation", [])
+    conversation.append({"sender": "User", "text": prompt})
+    conversation.append({"sender": "Assistant", "text": homomorphic_proof_output})
+    session["conversation"] = conversation
+
+    return jsonify({
+        "homomorphic_proof": homomorphic_proof_output
+    })
+
+
 @app.route("/system_requirements", methods=["POST"])
 # Removed @login_required decorator
 def system_requirements():

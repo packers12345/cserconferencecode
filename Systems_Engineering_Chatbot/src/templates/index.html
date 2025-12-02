@@ -15,6 +15,8 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="/static/morphism_visualizer.js"></script>
+    <link rel="stylesheet" href="/static/morphism_visualization.css">
     <style>
         :root {
             --primary-color: #0052cc;
@@ -154,6 +156,7 @@
             padding: 24px;
             display: flex;
             flex-direction: column;
+            overflow-y: auto;
         }
         .visualization-header {
             margin-bottom: 16px;
@@ -166,6 +169,14 @@
             border: 1px solid var(--border-color);
             border-radius: 6px;
             background-color: var(--background-color);
+            overflow: auto;
+        }
+        #morphism-svg-canvas {
+            width: 100%;
+            max-height: 500px;
+        }
+        #morphism-detail-panel {
+            margin-top: 16px;
         }
         .loading-indicator {
             display: none;
@@ -205,6 +216,8 @@
             <div class="visualization-panel">
                 <div class="visualization-header">System Visualization</div>
                 <div id="visualizationContainer"></div>
+                <div id="morphism-detail-panel" class="hidden"></div>
+                <div id="morphism-analysis-report"></div>
             </div>
         </main>
     </div>
@@ -219,12 +232,14 @@ Then, build upon the conversation by requesting other artifacts like System Desi
 
 Once you have generated the artifacts you need, you can ask for a visualization:
 - "Create a graph of the system."
-- "Visualize the system architecture."`;
+- "Visualize the system architecture."
+
+Or compare two systems with isomorphism analysis:
+- "Create a visual graph for the isomorphisms across a mechanical spring system and an electric circuit model"`;
 
         function showHelp() {
             addMessage('Assistant', welcomeText);
         }
-
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('welcomeMessage').innerHTML = marked.parse(welcomeText);
@@ -250,7 +265,6 @@ Once you have generated the artifacts you need, you can ask for a visualization:
                 bubble.innerText = text;
             } else {
                 bubble.innerHTML = marked.parse(text);
-                // After setting the HTML, find and render the math in the new content
                 setTimeout(() => MathJax.typesetPromise([bubble]), 0);
             }
             
@@ -261,7 +275,7 @@ Once you have generated the artifacts you need, you can ask for a visualization:
 
         function showVisualization(graphData) {
             const container = document.getElementById('visualizationContainer');
-            container.innerHTML = ''; // Clear previous content
+            container.innerHTML = '';
 
             if (!graphData) {
                 return;
@@ -322,7 +336,6 @@ Once you have generated the artifacts you need, you can ask for a visualization:
             const network = new vis.Network(container, data, options);
 
             network.on("stabilizationIterationsDone", function () {
-                // Get the IDs of the first few SR nodes to focus on
                 const focusNodes = graphData.nodes
                     .filter(node => node.group === 'System Requirement')
                     .slice(0, 3)
@@ -330,14 +343,13 @@ Once you have generated the artifacts you need, you can ask for a visualization:
 
                 if (focusNodes.length > 0) {
                     network.focus(focusNodes[0], {
-                        scale: 2.5, // 250% zoom
+                        scale: 2.5,
                         animation: {
                             duration: 1000,
                             easingFunction: 'easeInOutQuad'
                         }
                     });
                 } else {
-                    // Fallback to fitting the whole graph if no SRs exist
                     network.fit({
                         animation: {
                             duration: 1000,
@@ -369,6 +381,10 @@ Once you have generated the artifacts you need, you can ask for a visualization:
                 let url = '/chat';
                 if (prompt.toLowerCase().includes('morphism proof') || prompt.toLowerCase().includes('homomorphism')) {
                     url = '/morphism_proof';
+                } else if (prompt.toLowerCase().includes('l1 mapping') || prompt.toLowerCase().includes('l1 map') || prompt.toLowerCase().includes('l1-mapping')) {
+                    url = '/l1_mapping';
+                } else if (prompt.toLowerCase().includes('visual') && (prompt.toLowerCase().includes('isomorphism') || prompt.toLowerCase().includes('morphism'))) {
+                    url = '/isomorphism_visualization';
                 }
 
                 const response = await fetch(url, { method: 'POST', body: formData });
@@ -384,6 +400,31 @@ Once you have generated the artifacts you need, you can ask for a visualization:
                     if (data.graph_data) {
                         showVisualization(data.graph_data);
                     }
+                    if (data.visualization_svg && data.morphisms) {
+                        displayIsomorphismVisualization(data);
+                    }
+                    if (data.l1_mapping) {
+                        try {
+                            const pre = document.createElement('pre');
+                            pre.style.backgroundColor = '#f4f5f7';
+                            pre.style.padding = '12px';
+                            pre.style.borderRadius = '6px';
+                            pre.style.overflowX = 'auto';
+                            pre.textContent = JSON.stringify(data.l1_mapping, null, 2);
+
+                            const history = document.getElementById('chatHistory');
+                            const messageDiv = document.createElement('div');
+                            messageDiv.className = 'message assistant-message';
+                            const bubble = document.createElement('div');
+                            bubble.className = 'message-bubble';
+                            bubble.appendChild(pre);
+                            messageDiv.appendChild(bubble);
+                            history.appendChild(messageDiv);
+                            history.scrollTop = history.scrollHeight;
+                        } catch (e) {
+                            console.error('Error rendering L1 mapping JSON:', e);
+                        }
+                    }
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -396,11 +437,31 @@ Once you have generated the artifacts you need, you can ask for a visualization:
             }
         }
 
+        function displayIsomorphismVisualization(data) {
+            const container = document.getElementById('visualizationContainer');
+            container.innerHTML = '';
+
+            const wrapper = document.createElement('div');
+            wrapper.id = 'morphism-visualization-container';
+            
+            const svgDiv = document.createElement('div');
+            svgDiv.innerHTML = data.visualization_svg;
+            wrapper.appendChild(svgDiv);
+            
+            container.appendChild(wrapper);
+
+            if (typeof initializeIsomorphismVisualization === 'function') {
+                initializeIsomorphismVisualization(data);
+            }
+        }
+
         async function clearContext() {
             const response = await fetch('/clear_context', { method: 'POST' });
             const data = await response.json();
             document.getElementById('chatHistory').innerHTML = `<div class="message assistant-message"><div class="message-bubble">${marked.parse(welcomeText)}</div></div>`;
             document.getElementById('visualizationContainer').innerHTML = '';
+            document.getElementById('morphism-detail-panel').innerHTML = '';
+            document.getElementById('morphism-analysis-report').innerHTML = '';
             document.getElementById('system-topic-text').textContent = "Not specified";
             addMessage('Assistant', 'Conversation context has been cleared.');
         }

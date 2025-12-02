@@ -264,6 +264,12 @@
               class="bg-vt-maroon hover:bg-vt-orange text-white px-4 py-2 rounded-lg transition flex items-center justify-center flex-shrink-0">
               <span class="material-icons">send</span>
             </button>
+            <button 
+              id="homomorphic-proof-btn" 
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition flex items-center justify-center flex-shrink-0 ml-2">
+              <span class="material-icons mr-1">science</span>
+              Homomorphic Proof
+            </button>
           </div>
         </div>
       </div>
@@ -319,6 +325,17 @@
             </div>
           </div>
           
+          <!-- Homomorphic Proof Section -->
+          <div id="homomorphic-proof-section" class="hidden">
+            <h4 class="text-lg font-semibold text-blue-600 flex items-center">
+              <span class="material-icons mr-2">science</span>
+              Homomorphic Proof
+            </h4>
+            <div id="homomorphic-proof-output" class="mt-2 p-4 bg-blue-50 rounded-lg">
+              <!-- Content will be inserted here -->
+            </div>
+          </div>
+
           <!-- Graph Visualization Section -->
           <div>
             <h4 class="text-lg font-semibold text-vt-maroon flex items-center">
@@ -538,11 +555,72 @@
       });
     });
 
+    // Event listener for the homomorphic proof button
+    $("#homomorphic-proof-btn").click(function() {
+      const prompt = $("#combined-prompt").val().trim();
+      if (!prompt) return;
+
+      // Add user message to chat
+      addUserMessage(prompt);
+      
+      // Add loading message
+      addLoadingMessage();
+      
+      // Scroll to bottom
+      scrollChatToBottom();
+      
+      // Clear input
+      $("#combined-prompt").val("");
+
+      // Show output display and homomorphic proof section, hide others
+      $("#output-display").removeClass("hidden");
+      $("#homomorphic-proof-section").removeClass("hidden");
+      $("#system-design-output").parent().addClass("hidden");
+      $("#verification-requirements-output").parent().addClass("hidden");
+      $("#traceability-output").parent().addClass("hidden");
+      $("#verification-conditions-output").parent().addClass("hidden");
+      $("#system-visual-output").parent().addClass("hidden");
+
+      // AJAX POST to /homomorphic_proof
+      $.post("/homomorphic_proof", { prompt: prompt }, function(data) {
+        // Remove loading message
+        removeLoadingMessage();
+        
+        // Add assistant response to chat
+        addAssistantMessage("I've generated the homomorphic proof for your systems. You can review the detailed output below.");
+        
+        // Scroll chat to bottom
+        scrollChatToBottom();
+        
+        // Update homomorphic proof section
+        $("#homomorphic-proof-output").html(formatText(data.homomorphic_proof));
+
+        // Re-typeset LaTeX if available
+        if (typeof MathJax !== 'undefined') {
+          MathJax.typesetPromise();
+        }
+      }).fail(function() {
+        // Remove loading message
+        removeLoadingMessage();
+        
+        // Add error message
+        addAssistantMessage("I apologize, but an error occurred while generating the homomorphic proof. Please ensure your prompt is in the format 'create a homomorphic proof for [System X] and [System Y]' and try again.");
+        
+        // Scroll to bottom
+        scrollChatToBottom();
+      });
+    });
+
     // Event listener for pressing Enter in the textarea
     $("#combined-prompt").keydown(function(e) {
       if (e.keyCode === 13 && !e.shiftKey) {
         e.preventDefault();
-        $("#combined-send-btn").click();
+        // Determine which button to "click" based on prompt content
+        if (e.target.value.toLowerCase().includes("homomorphic proof for")) {
+          $("#homomorphic-proof-btn").click();
+        } else {
+          $("#combined-send-btn").click();
+        }
       }
     });
 

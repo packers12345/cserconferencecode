@@ -134,23 +134,6 @@ class Neo4jConnection:
         """
         self.query(query, parameters={"system_topic": system_topic, "model_name": model_name, "model_definition": model_definition})
 
-    def get_mathematical_models(self, system_topic):
-        """
-        Fetches all mathematical models for a specific system from Neo4j.
-        """
-        query = """
-        MATCH (s:System {name: $system_topic})-[:HAS_MODEL]->(m:MathematicalModel)
-        RETURN m
-        """
-        records = self.query(query, parameters={"system_topic": system_topic})
-        
-        models = []
-        for record in records:
-            node = record["m"]
-            models.append({
-                "name": node.get("name"),
-                "definition": node.get("definition")
-            })
         return models
 
 if __name__ == '__main__':
